@@ -1,0 +1,12 @@
+*.h5
+__pycache__
+.vscode
+profiling/
+checkpoints/
+wandb/
+results/
+.DS_Store
+registration/ANTs/
+registration/build/
+registration/install/
+bash_scripts/
