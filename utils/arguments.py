@@ -29,7 +29,7 @@ def classification_args():
     parser.add_argument("--false-positive-weight", type=float, default=1.)
     parser.add_argument('--batches-per-epoch', default=1000, type=int, help='no. of training batches per epoch')
     parser.add_argument('--lr', default=1e-3, type=float, help='initial learning rate')
-    parser.add_argument('--lr-milestones', nargs='+', default=[40, 60, 80], type=int, help='decrease lr on milestones')
+    parser.add_argument('--lr-milestones', nargs='+', default=[], type=int, help='decrease lr on milestones')
     parser.add_argument('--lr-gamma', default=0.3, type=float, help='decrease lr by a factor of lr-gamma')
 
     # Mode + Visualizations
@@ -56,14 +56,15 @@ def classification_args():
 
     # Make the output-dir
     keys={
-        "epochs":"epochs", "delta_frames":"delta","classification_augs":"aug","fold":"fold","clip_len":"len","lr":"lr","head_depth":"mlp"
+        "epochs":"epochs", "delta_frames":"delta","classification_augs":"aug","clip_len":"len","lr":"lr","head_depth":"mlp"
     }
     name = '-'.join(["%s%s" % (keys[k], getattr(args, k) if not isinstance(getattr(args, k), list) else '-'.join([str(s) for s in getattr(args, k)])) for k in sorted(keys)])
     import datetime
     dt = datetime.datetime.today()
     args.group_number=args.name
     args.name = "%s-%s-%s_%s" % (str(dt.month), str(dt.day), args.name, name)
-    args.output_dir = "checkpoints/classification/%s/fold_%s" % (args.name, args.fold)
+    args.output_dir = "checkpoints/classification/%s/%s/fold_%s" % (args.group_number, args.name, args.fold)
+    args.wandb_name = f"{args.name}-fold_{args.fold}"
 
     if os.path.exists(args.output_dir):
         print("Cleaning the output-dir")

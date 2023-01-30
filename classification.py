@@ -76,7 +76,7 @@ def main(args):
     criterion = nn.CrossEntropyLoss(weight=torch.tensor([1., args.false_positive_weight]).to(args.device), reduction='sum')
     
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-    lr_milestones = [len(mal_train_loader) * m for m in args.lr_milestones]
+    lr_milestones = [args.batches_per_epoch * m for m in args.lr_milestones]
     lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=lr_milestones, gamma=args.lr_gamma)
 
     def save_model_checkpoint(epoch):

@@ -8,7 +8,7 @@ class Visualize(object):
     def wandb_init(self, model):
         if not self._init:
             self._init = True
-            wandb.init(project=self.args.project_name, group=args.group_number, config=self.args, name=self.args.name)
+            wandb.init(project=self.args.project_name, group=self.args.group_number, config=self.args, name=self.args.wandb_name)
             wandb.watch(model)
 
     def log(self, key_vals):
