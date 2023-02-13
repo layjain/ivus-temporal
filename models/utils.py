@@ -18,9 +18,9 @@ class From3D(nn.Module):
 
 def make_encoder(args):
     if args.encoder_type=="resnet18":
-        net = resnet.resnet18(num_channels=args.clip_len) # HACK
+        net = resnet.resnet18(num_channels=args.model_in_channels) # HACK
     elif args.encoder_type=="resnet50":
-        net = resnet.resnet50(num_channels=args.clip_len)
+        net = resnet.resnet50(num_channels=args.model_in_channels)
     else:
         raise NotImplementedError(f"Encoder Type {args.encoder_type} not implemented.")
     

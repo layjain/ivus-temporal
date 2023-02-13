@@ -8,6 +8,7 @@ from tqdm import tqdm
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, RandomSampler
+from torchvision.ops import focal_loss
 
 import utils
 from models.encoder_classifier import EncoderClassifier2D
@@ -31,10 +32,10 @@ def get_dataloaders(args, img_size, clip_len, mode):
 
     mode_to_transform = {
         "train": utils.augs.TrainTransform(
-            aug_list=args.classification_augs, img_size=img_size, deterministic_intensity=args.det_in
+            aug_list=args.classification_augs, img_size=img_size, deterministic_intensity=args.det_in, concat_struts=args.concat_struts
         ),
         "val": utils.augs.ValTransform(
-            aug_list=args.classification_augs, img_size=img_size
+            aug_list=args.classification_augs, img_size=img_size, concat_struts=args.concat_struts
         ),
     }
     transform = mode_to_transform[mode]
@@ -64,6 +65,21 @@ def get_dataloaders(args, img_size, clip_len, mode):
 
     return malapposed_loader, normal_loader
 
+def get_criterion(args):
+    '''
+    criterion: (Bx2) x {0,1}^B --> R
+    '''
+    if args.loss=="CE":
+        return nn.CrossEntropyLoss(weight=torch.tensor([1., args.false_positive_weight]).to(args.device), reduction='sum')
+
+    elif args.loss=="focal":
+        def focal_criterion(feats, labels):
+            inputs = feats[:,1]-feats[:,0]
+            inpts=inputs.float()
+            labels=labels.float()
+            return focal_loss.sigmoid_focal_loss(inputs, labels, alpha=args.focal_alpha, gamma=args.focal_gamma, reduction='sum')
+        return focal_criterion
+
 def main(args):    
     model = EncoderClassifier2D(args)
     model = model.to(args.device)
@@ -73,7 +89,7 @@ def main(args):
     mal_train_loader, normal_train_loader = get_dataloaders(args, args.img_size, args.clip_len, "train")
     mal_val_loader, normal_val_loader = get_dataloaders(args, args.img_size, args.clip_len, "val")
 
-    criterion = nn.CrossEntropyLoss(weight=torch.tensor([1., args.false_positive_weight]).to(args.device), reduction='sum')
+    criterion = get_criterion(args)
     
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     lr_milestones = [args.batches_per_epoch * m for m in args.lr_milestones]

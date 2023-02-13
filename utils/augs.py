@@ -73,21 +73,28 @@ class CustomRTConvert(object):
 
 
 class TrainTransform(object):
-    def __init__(self, aug_list, img_size, deterministic_intensity=False):
+    def __init__(self, aug_list, img_size, deterministic_intensity=False, concat_struts=False):
         self.aug_list = aug_list
         self.img_size = img_size
         self.det_in = deterministic_intensity
+        self.struts = concat_struts
+        if self.struts:
+            if not self.det_in:
+                raise ValueError("Must set det_in=True for Struts")
+            self.segmentor = torch.load("/data/vision/polina/users/layjain/ivus-temporal/struts/model_10600.pt").to('cpu')
+            self.segmentor.eval()
+        
 
     def __call__(self, vid):
         T, H, W, C = vid.shape  # To assert correct shape
         assert C == 1
         assert H == W
-        to_apply = []
+        to_apply, seg_apply = [], [self.get_segmentation]
 
         # No resizing is done if the sizes match: 
         # https://pytorch.org/vision/main/_modules/torchvision/transforms/functional.html#resize
         resize = torchvision.transforms.Resize((self.img_size, self.img_size))
-        to_apply.append(resize)
+        to_apply.append(resize) # segmentations already resized
 
         floatify = CustomFloatify()
         to_apply.append(floatify)
@@ -98,6 +105,8 @@ class TrainTransform(object):
                     self.img_size, scale=(0.8, 0.95), ratio=(0.7, 1.3), interpolation=2
                 )
                 to_apply.append(random_crop)
+                if not self.det_in:
+                    raise NotImplementedError("TODO: Deterministic RRC")
             elif aug_string == "affine":  # deterministic
                 affine_params = torchvision.transforms.RandomAffine.get_params(
                     degrees=(-180, 180),
@@ -107,12 +116,12 @@ class TrainTransform(object):
                     img_size=[W, W],
                 )
                 affine = lambda img: F.affine(img, *affine_params)
-                to_apply.append(affine)
+                to_apply.append(affine); seg_apply.append(affine)
             elif aug_string == "flip":  # deterministic
                 if torch.rand(1) < 0.5:
-                    to_apply.append(F.hflip)
+                    to_apply.append(F.hflip); seg_apply.append(F.hflip)
                 if torch.rand(1) < 0.5:
-                    to_apply.append(F.vflip)
+                    to_apply.append(F.vflip); seg_apply.append(F.vflip)
             elif aug_string == "cj":  # randomized
                 if not self.det_in:
                     cj = torchvision.transforms.ColorJitter(
@@ -136,7 +145,7 @@ class TrainTransform(object):
 
                         return img
 
-                to_apply.append(cj)
+                to_apply.append(cj); seg_apply.append(cj)
             elif aug_string == "blur":  # randomized
                 if not self.det_in:
                     blur = torchvision.transforms.GaussianBlur(
@@ -147,7 +156,7 @@ class TrainTransform(object):
                     sigma = torchvision.transforms.GaussianBlur.get_params(0.1, 3)
                     blur = lambda img: F.gaussian_blur(img, (7,7), [sigma, sigma])
 
-                to_apply.append(blur)
+                to_apply.append(blur); seg_apply.append(blur)
             elif aug_string == "sharp":  # randomized
                 if not self.det_in:
                     sharpness = torchvision.transforms.RandomAdjustSharpness(2.)
@@ -156,13 +165,13 @@ class TrainTransform(object):
                         sharpness = lambda img: F.adjust_sharpness(img, 2.)
                     else:
                         sharpness = lambda img: img
-                to_apply.append(sharpness)
+                to_apply.append(sharpness); seg_apply.append(sharpness)
             elif aug_string == "rt":  # deterministic
                 rt = CustomRTConvert()
-                to_apply.append(rt)
+                to_apply.append(rt); seg_apply.append(rt)
             elif aug_string == "norm":  # deterministic
                 normalize = CustomNormalize()
-                to_apply.append(normalize)
+                to_apply.append(normalize) # No need to norm the segmentations
             else:
                 raise ValueError(f"Invalid Augmentation {aug_string}")
 
@@ -183,25 +192,85 @@ class TrainTransform(object):
             ]
         )  # T x C x W x H
 
-        plain = torchvision.transforms.Compose(
-            [
-                torchvision.transforms.Resize((self.img_size, self.img_size)),
-            ]
-        )
+        if self.struts:
+            seg_stacked = np.stack(
+                [
+                    apply_sequential(
+                        v, seg_apply
+                    )
+                    for v in vid
+                ]
+            )  # T x C x W x H
+            stacked = np.concatenate((stacked, seg_stacked)) # 2T x C x W x H
+
+        # plain = torchvision.transforms.Compose(
+        #     [
+        #         torchvision.transforms.Resize((self.img_size, self.img_size)),
+        #     ]
+        # )
 
         return torch.from_numpy(stacked) #, plain(torch.from_numpy(np.float32(vid[0])).transpose(0, 2))
+    
+    def get_segmentation(self, frame):
+        """
+        frame: H, W, 1 (torch)
+        """
+        H, W, C = frame.shape
+        assert C==1
+        assert H==W
+
+        if np.max(frame) <= 1:
+            raise ValueError("TODO: Skip floatifying good image for struts")
+
+        image = np.expand_dims((frame/255).squeeze(), axis=(0,1)).astype(np.float32) # 1 x 1 x H x W
+        image = torch.from_numpy(image)
+        image = F.resize(image, (self.img_size, self.img_size))
+
+        logits = self.segmentor(image)
+        segmentation = torch.sigmoid(logits).detach().to('cpu')
+        segmentation = torch.squeeze(segmentation)
+        segmentation = torch.unsqueeze(segmentation, dim=0)
+        
+        return segmentation # 1, H, W
 
 
 class ValTransform(object):
-    def __init__(self, img_size, aug_list):
+    def __init__(self, img_size, aug_list, concat_struts=False):
         self.img_size = img_size
         self.aug_list = aug_list
+        self.struts = concat_struts
+        if self.struts:
+            self.segmentor = torch.load("/data/vision/polina/users/layjain/ivus-temporal/struts/model_10600.pt").to('cpu')
+            self.segmentor.eval()
+
+    def get_segmentation(self, frame):
+        """
+        frame: H, W, 1 (torch)
+        (Same function as above)
+        """
+        H, W, C = frame.shape
+        assert C==1
+        assert H==W
+
+        if np.max(frame) <= 1:
+            raise ValueError("TODO: Skip floatifying good image for struts")
+
+        image = np.expand_dims((frame/255).squeeze(), axis=(0,1)).astype(np.float32) # 1 x 1 x H x W
+        image = torch.from_numpy(image)
+        image = F.resize(image, (self.img_size, self.img_size))
+
+        logits = self.segmentor(image)
+        segmentation = torch.sigmoid(logits).detach().to('cpu')
+        segmentation = torch.squeeze(segmentation)
+        segmentation = torch.unsqueeze(segmentation, dim=0)
+        
+        return segmentation # 1, H, W
 
     def __call__(self, vid):
         T, H, W, C = vid.shape  # To assert correct shape
         assert C == 1
         assert H == W
-        to_compose = []
+        to_compose, to_seg = [], [self.get_segmentation]
 
         resize = torchvision.transforms.Resize((self.img_size, self.img_size))
         to_compose.append(resize)
@@ -212,7 +281,7 @@ class ValTransform(object):
         for aug_string in self.aug_list:
             if aug_string == "rt":
                 rt = CustomRTConvert()
-                to_compose.append(rt)
+                to_compose.append(rt); to_seg.append(rt)
 
             elif aug_string == "norm":
                 normalize = CustomNormalize()
@@ -222,11 +291,30 @@ class ValTransform(object):
         stacked = np.stack(
             [composed(torch.from_numpy(np.float32(v)).transpose(0, 2)) for v in vid]
         )  # T x N x H' x W'
+        def apply_sequential(frame, to_apply):
+            """
+            frame: torch,  [...,H,W]
+            """
+            for f in to_apply:
+                frame = f(frame)
+            return frame
 
-        plain = torchvision.transforms.Compose(
-            [
-                torchvision.transforms.Resize((self.img_size, self.img_size)),
-            ]
-        )
+        if self.struts:
+            seg_stacked = np.stack(
+                [
+                    apply_sequential(
+                        v, to_seg
+                    )
+                    for v in vid
+                ]
+            )  # T x C x W x H
+            stacked = np.concatenate((stacked, seg_stacked)) # 2T x C x W x H
+
+
+        # plain = torchvision.transforms.Compose(
+        #     [
+        #         torchvision.transforms.Resize((self.img_size, self.img_size)),
+        #     ]
+        # )
 
         return torch.from_numpy(stacked) #, plain(torch.from_numpy(np.float32(vid[0])).transpose(0, 2))

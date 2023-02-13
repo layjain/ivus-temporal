@@ -5,7 +5,7 @@ import random
 import utils
 
 def classification_args():
-    parser = argparse.ArgumentParser(description='Malapposition Classification using saved models')
+    parser = argparse.ArgumentParser(description='Malapposition Classification using Temporal models')
 
     # Data
     parser.add_argument("--data-path", type=str, default='/data/vision/polina/users/layjain/pickled_data/folded_malapposed_runs')
@@ -24,6 +24,11 @@ def classification_args():
     parser.add_argument("--head-depth", type=int, default=0)
     parser.add_argument('--remove-layers', default=['layer4'], help='layer[1-4]')
 
+    # Loss
+    parser.add_argument("--loss", type=str, default='CE')
+    parser.add_argument("--focal-alpha", type=float, default=0.8)
+    parser.add_argument("--focal-gamma", type=float, default=3)
+
     # Optimization
     parser.add_argument('--epochs', default=500, type=int, metavar='N', help='number of total epochs to run')
     parser.add_argument("--false-positive-weight", type=float, default=1.)
@@ -41,10 +46,16 @@ def classification_args():
     # Augmentations
     parser.add_argument("--classification-augs", default=['norm'], nargs='+', type=str, help='data-augmentations to use while training the classifier')
     parser.add_argument("--det-in", dest="det_in", default=False, action='store_true', help='deterministic intensity augs')
+    parser.add_argument("--concat-struts", dest="concat_struts", default=False, action='store_true', help='concatenate strut segmentations')
 
     parser.add_argument("--project-name", default='TemporalClassification', type=str)
 
     args = parser.parse_args()
+
+    if args.concat_struts:
+        args.model_in_channels = 2 * args.clip_len
+    else:
+        args.model_in_channels = args.clip_len
 
     if args.fast_test:
         args.batch_size = 4
@@ -56,7 +67,7 @@ def classification_args():
 
     # Make the output-dir
     keys={
-        "epochs":"epochs", "delta_frames":"delta","classification_augs":"aug","clip_len":"len","lr":"lr","head_depth":"mlp"
+        "epochs":"epochs", "delta_frames":"delta","classification_augs":"aug","clip_len":"len","lr":"lr","head_depth":"mlp","concat_struts":"struts"
     }
     name = '-'.join(["%s%s" % (keys[k], getattr(args, k) if not isinstance(getattr(args, k), list) else '-'.join([str(s) for s in getattr(args, k)])) for k in sorted(keys)])
     import datetime
