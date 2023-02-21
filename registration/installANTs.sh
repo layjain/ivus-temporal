@@ -4,9 +4,13 @@ antsBuildInstructions="https://github.com/ANTsX/ANTs/wiki/Compiling-ANTs-on-Linu
 
 echo "
 This script will download ANTs, build and install under the current directory. 
+
 Developer tools including compilers, git and cmake must be installed
+
 If you encounter errors, please see the installation instructions at
+
   $antsBuildInstructions
+
 Build will proceed in 5 seconds
 "
 
@@ -46,7 +50,9 @@ cmake \
 
 if [[ $? -ne 0 ]]; then
   echo "ANTs SuperBuild configuration failed. Please review documentation at
+
     $antsBuildInstructions
+
   If opening an issue, please attach
   
   ${buildDir}/cmake.log
@@ -62,8 +68,11 @@ make -j $buildThreads 2>&1 | tee build.log
 
 if [[ ! -f "CMakeFiles/ANTS-complete" ]]; then
   echo "ANTs compilation failed. Please review documentation at
+
     $antsBuildInstructions
+
   If opening an issue, please attach
+
   ${buildDir}/build.log
   ${buildDir}/cmake.log
   ${buildDir}/CMakeCache.txt
@@ -81,14 +90,18 @@ antsRegExe="${installDir}/bin/antsRegistration"
 
 if [[ ! -f ${antsRegExe} ]]; then
   echo "Installation failed. Please review documentation at
+
     $antsBuildInstructions
+
   If opening an issue, please attach
+
   ${buildDir}/build.log
   ${buildDir}/cmake.log
   ${buildDir}/CMakeCache.txt
   ${buildDir}/ANTS-build/install.log
   ${buildDir}/CMakeFiles/CMakeError.log
   ${buildDir}/CMakeFiles/CMakeOutput.log
+
 "
   exit 1
 fi
@@ -99,7 +112,11 @@ ${antsRegExe} --version
 
 echo "
 Binaries and scripts are located in 
+
   $installDir
+
 Please see post installation instructions at 
+
   $antsBuildInstructions
+
 "

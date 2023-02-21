@@ -34,6 +34,7 @@ def classification_args():
     parser.add_argument("--false-positive-weight", type=float, default=1.)
     parser.add_argument('--batches-per-epoch', default=1000, type=int, help='no. of training batches per epoch')
     parser.add_argument('--lr', default=1e-3, type=float, help='initial learning rate')
+    parser.add_argument('--lr-scheduler', type=str, default='MultiStepLR', help='LR Scheduler')
     parser.add_argument('--lr-milestones', nargs='+', default=[], type=int, help='decrease lr on milestones')
     parser.add_argument('--lr-gamma', default=0.3, type=float, help='decrease lr by a factor of lr-gamma')
 

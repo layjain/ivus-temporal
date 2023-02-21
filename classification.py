@@ -80,6 +80,18 @@ def get_criterion(args):
             return focal_loss.sigmoid_focal_loss(inputs, labels, alpha=args.focal_alpha, gamma=args.focal_gamma, reduction='sum')
         return focal_criterion
 
+def get_lr_scheduler(optimizer, args):
+    # https://towardsdatascience.com/a-visual-guide-to-learning-rate-schedulers-in-pytorch-24bbb262c863
+    if args.lr_scheduler=='MultiStepLR':
+        lr_milestones = [args.batches_per_epoch * m for m in args.lr_milestones]
+        lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=lr_milestones, gamma=args.lr_gamma)
+    elif args.lr_scheduler=='OneCycleCos':
+        lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=args.lr, total_steps=args.batches_per_epoch * args.epochs, pct_start=0.1, anneal_strategy='cos')
+    else:
+        raise ValueError(f"LR Scheduler {args.lr_scheduler} not implemented!")
+    return lr_scheduler
+
+
 def main(args):    
     model = EncoderClassifier2D(args)
     model = model.to(args.device)
@@ -92,8 +104,9 @@ def main(args):
     criterion = get_criterion(args)
     
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-    lr_milestones = [args.batches_per_epoch * m for m in args.lr_milestones]
-    lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=lr_milestones, gamma=args.lr_gamma)
+
+    lr_scheduler = get_lr_scheduler(optimizer, args)
+    
 
     def save_model_checkpoint(epoch):
         if args.output_dir:
