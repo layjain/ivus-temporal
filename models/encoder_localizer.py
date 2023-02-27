@@ -3,9 +3,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
 
-from . import registration
+from . import utils
 
-class EncoderTransformer(nn.Module):
+class EncoderLocalizer(nn.Module):
     '''
     EncoderClassifier2D uses the color channels (C' = T, T' = 1) 
     to obtain the encoding and subsequent classification
@@ -16,7 +16,7 @@ class EncoderTransformer(nn.Module):
     def __init__(self, args):
         super(EncoderTransformer, self).__init__()
         self.args=args
-        self.dim_out=args.clip_len * registration.get_num_params(args.transform) # P = T * p
+        self.dim_out=args.clip_len * utils.get_num_params(args.transform) # P = T * p
         self.encoder=utils.make_encoder(args)
         self.infer_dims(args)
         self.mlp_encoding_size=args.mlp_encoding_size # default 128
@@ -57,6 +57,3 @@ class EncoderTransformer(nn.Module):
         feats = feats.transpose(-1, -2).reshape(-1, self.enc_hid_dim) # B x 1 x 512 --> B x 512
         feats = self.selfsim_fc(feats) # B x P
         return feats
-    
-
-

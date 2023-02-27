@@ -1,8 +1,10 @@
 *.h5
 *.pt
+*.jpg
+*.png
+del.*
 __pycache__
 .vscode
-profiling/
 checkpoints/
 wandb/
 results/
@@ -11,3 +13,4 @@ registration/ANTs/
 registration/build/
 registration/install/
 bash_scripts/
+struts/segmentations/

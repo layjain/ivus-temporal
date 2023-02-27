@@ -86,11 +86,10 @@ def get_lr_scheduler(optimizer, args):
         lr_milestones = [args.batches_per_epoch * m for m in args.lr_milestones]
         lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=lr_milestones, gamma=args.lr_gamma)
     elif args.lr_scheduler=='OneCycleCos':
-        lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=args.lr, total_steps=args.batches_per_epoch * args.epochs, pct_start=0.1, anneal_strategy='cos')
+        lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=args.lr, total_steps=args.batches_per_epoch * args.epochs, pct_start=0.1, anneal_strategy='cos')  
     else:
         raise ValueError(f"LR Scheduler {args.lr_scheduler} not implemented!")
     return lr_scheduler
-
 
 def main(args):    
     model = EncoderClassifier2D(args)

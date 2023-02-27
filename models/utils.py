@@ -31,3 +31,24 @@ def make_encoder(args):
         net = From3D(net)
 
     return net
+
+################
+# Registration #
+################
+
+def get_num_params(transform_str):
+    if transform_str == 'Rigid':
+        return 3
+
+def get_unet(in_channels):
+    import monai
+    model = monai.networks.nets.UNet(
+    spatial_dims=2,
+    in_channels=in_channels,
+    out_channels=1,
+    channels=(16, 32, 64, 128, 256),
+    strides=(2, 2, 2, 2),
+    num_res_units=1,
+    dropout = 0.1)
+
+    return model
