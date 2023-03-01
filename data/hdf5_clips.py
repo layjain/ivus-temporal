@@ -36,13 +36,20 @@ class UnlabelledClips(Dataset):
         frames_per_clip=4,
         transform=None,
         cached=False,
+        save_img_size = 512,
+        step_between_clips = 1,
         save_file="/data/vision/polina/users/layjain/ivus-videowalk/ivus_dataset.h5",
     ):
         """
         Slice into clips and convert to HDF5 Cache
+        A video of length L, frames_per_clip=T, and step_between_clips=d will result in 
+        L//(T+d-1) clips.
+        In particular, setting step_between_clips=1 will result in disjoint adjacent clips.
         """
         self.frames_per_clip = frames_per_clip
         self.transform = transform
+        self.save_img_size = save_img_size
+        self.step_between_clips = step_between_clips
 
         if not root.endswith("/"):
             root = root + "/"
@@ -80,20 +87,39 @@ class UnlabelledClips(Dataset):
 
     def make_clips(self, filepath):
         """
-        Slice into Clips with `frames_per_clip` frames each, and `step_between_clips = 1` steps.
+        Slice into Clips with `frames_per_clip` frames each, and `step_between_clips` steps.
         The last few frames may be lost.
         """
         with open(filepath, "rb") as fh:
-            images = pickle.load(fh)
+            images = pickle.load(fh) # L x H x W x 1
         slices = []
         i = 0
-        while self.frames_per_clip * (i + 1) <= images.shape[0]:
+        spacing_between_clips = self.frames_per_clip + self.step_between_clips - 1
+
+        while spacing_between_clips * i + self.frames_per_clip <= images.shape[0]:
             sliced = images[
-                list(range(self.frames_per_clip * i, self.frames_per_clip * (i + 1)))
+                list(range(spacing_between_clips * i, spacing_between_clips * i + self.frames_per_clip))
             ]
             slices.append(sliced)
             i += 1
-        return np.array(slices)
+        clips = np.array(slices) # N x T x H x W x 1, N = L//(T+d-1), [0, 255], uint16
+        num_clips, num_frames, H, W, C = clips.shape
+        assert C==1 # grayscale
+        assert H==W # square
+        assert num_frames==self.frames_per_clip
+        assert num_clips==len(images)//spacing_between_clips
+        if H!=self.save_img_size:
+            clips=self._resize_images(clips) # N x T x H x W x 1, float32, [0, 255]
+        return clips
+
+
+    def _resize_images(self, images):
+        # Use torchvision transform for connsistency
+        import torchvision
+        resize = torchvision.transforms.Resize((self.save_img_size, self.save_img_size))
+        images = resize(torch.from_numpy(np.float32(images)).squeeze()) # N, H', W'
+        images = images.unsqueeze(-1).numpy() # N, H', W', 1
+        return images
 
     def __len__(self):
         return self.f["clips"].shape[0]
