@@ -25,21 +25,21 @@ class RigidSTN(base.BaseSTN):
                             [
                                 torch.cos(t).unsqueeze(dim=0),
                                 -torch.sin(t).unsqueeze(dim=0),
-                                torch.zeros(1),
+                                torch.zeros(1).to(p.device),
                             ]
                         ),
                         torch.stack(
                             [
                                 torch.sin(t).unsqueeze(dim=0),
                                 torch.cos(t).unsqueeze(dim=0),
-                                torch.zeros(1),
+                                torch.zeros(1).to(p.device),
                             ]
                         ),
                         torch.stack(
                             [
-                                torch.zeros(1),
-                                torch.zeros(1),
-                                torch.ones(1),
+                                torch.zeros(1).to(p.device),
+                                torch.zeros(1).to(p.device),
+                                torch.ones(1).to(p.device),
                             ]
                         ),
                     ]
@@ -53,23 +53,23 @@ class RigidSTN(base.BaseSTN):
                     [
                         torch.stack(
                             [
-                                torch.ones(1),
-                                torch.zeros(1),
+                                torch.ones(1).to(p.device),
+                                torch.zeros(1).to(p.device),
                                 v_x.unsqueeze(dim=0)
                             ]
                         ),
                         torch.stack(
                             [
-                                torch.zeros(1),
-                                torch.ones(1),
+                                torch.zeros(1).to(p.device),
+                                torch.ones(1).to(p.device),
                                 v_y.unsqueeze(dim=0)
                             ]
                         ),
                         torch.stack(
                             [
-                                torch.zeros(1),
-                                torch.zeros(1),
-                                torch.ones(1),
+                                torch.zeros(1).to(p.device),
+                                torch.zeros(1).to(p.device),
+                                torch.ones(1).to(p.device),
                             ]
                         ),
                     ]
@@ -79,9 +79,9 @@ class RigidSTN(base.BaseSTN):
         ).squeeze() # B*T x 3 x 3
         A = torch.matmul(_R, _T) # B*T x 3 x 3
         A = A[:,:2,:]
-        grid = F.affine_grid(A, torch.Size((B*T, 1, H, W)))
+        grid = F.affine_grid(A, torch.Size((B*T, 1, H, W)), align_corners=False)
         x = x.view(B*T, 1, H, W)
-        x = F.grid_sample(x, grid) # B*T x 1 x H x W
+        x = F.grid_sample(x, grid, align_corners=False) # B*T x 1 x H x W
         x = x.view(B, T, 1, H, W)
         return x
 

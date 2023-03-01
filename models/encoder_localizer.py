@@ -14,7 +14,7 @@ class EncoderLocalizer(nn.Module):
     Use CRW pattern for consistency with past experiments
     '''
     def __init__(self, args):
-        super(EncoderTransformer, self).__init__()
+        super(EncoderLocalizer, self).__init__()
         self.args=args
         self.dim_out=args.clip_len * utils.get_num_params(args.transform) # P = T * p
         self.encoder=utils.make_encoder(args)

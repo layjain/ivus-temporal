@@ -5,14 +5,14 @@ import torchvision
 
 from . import encoder_localizer
 from . import utils
-from . import stn
+from . import stns
 
 class RegistrationModel(nn.Module):
     def __init__(self, args):
         super(RegistrationModel, self).__init__()
         self.args = args
         self.encoder_localizer = encoder_localizer.EncoderLocalizer(args)
-        self.stn = stn.get_stn(args)
+        self.stn = stns.get_stn(args)
         self.unet = utils.get_unet(in_channels=args.clip_len)
 
     def forward(self, x):
@@ -24,3 +24,7 @@ class RegistrationModel(nn.Module):
         assert ONE==1, f"input shape: {x.shape}"
         assert H==W, f"input shape: {x.shape}"
         transform_parameters = self.encoder_localizer(x) # B x (T*p)
+        x_transformed = self.stn.transform(x, transform_parameters) # B x T x 1 x H x W
+        template = self.unet(x.squeeze()) + torch.mean(x, dim=1, keepdim=True) # B x 1 x H x W
+
+        return x_transformed.squeeze(2), template # B x T x H x W, B x 1 x H x W

@@ -3,3 +3,4 @@ from . import utils
 from . import encoder_classifier
 from . import encoder_localizer
 from . import stns
+from . import registration_model
