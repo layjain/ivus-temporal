@@ -14,13 +14,12 @@ dataset = UnlabelledClips(
     transform=None,
     cached=True,
     save_img_size=256,
-    save_file=f"/data/vision/polina/users/layjain/pickled_data/pretraining/ivus_{mode}_len_{clip_len}.h5"
+    save_file=f"/data/vision/polina/users/layjain/pickled_data/pretraining/ivus_{mode}_len_{clip_len}_del.h5"
 )
 
 dataloader = DataLoader(dataset, batch_size=8, pin_memory=True, num_workers = 8, shuffle=True)
 
+print("Loading from dataloader")
 images = next(iter(dataloader))
 
 print(images.shape) # 8=B x 30=T x 256=H x 256=W x 1=C torch
-
-

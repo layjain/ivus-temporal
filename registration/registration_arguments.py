@@ -41,12 +41,12 @@ def registration_args():
     args.model_in_channels = args.clip_len
 
     if args.fast_test:
-        args.batch_size = 4
-        args.workers = 0
+        # args.batch_size = 4
+        # args.workers = 0
         args.batches_per_epoch = 2
         args.name='fast_test'
         args.visualize=False
-        # args.device='cpu'
+        args.device='cpu'
 
     # Make the output-dir
     keys={

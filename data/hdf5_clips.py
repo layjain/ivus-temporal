@@ -9,7 +9,7 @@ import pickle
 import h5py
 import json
 
-# from utils import timer_func
+from utils import timer_func
 import time
 
 def get_labelled_set(stent_json, label = "malapposition", assert_nonempty = True):
@@ -71,7 +71,7 @@ class UnlabelledClips(Dataset):
                 slices = self.make_clips(filepath)
                 if not self.initialized:
                     self.f.create_dataset(
-                        "clips", data=slices, maxshape=(None,) + slices.shape[1:]
+                        "clips", data=slices, maxshape=(None,) + slices.shape[1:], chunks=(1,)+slices.shape[1:]
                     )
                     self.initialized = True
                 else:
@@ -121,9 +121,11 @@ class UnlabelledClips(Dataset):
         images = images.unsqueeze(-1).numpy() # N, H', W', 1
         return images
 
+    # @timer_func
     def __len__(self):
         return self.f["clips"].shape[0]
 
+    # @timer_func
     def __getitem__(self, idx):
         clip = self.f["clips"][idx]  # fpc x 512 x 512 x 1
         if self.transform is not None:
