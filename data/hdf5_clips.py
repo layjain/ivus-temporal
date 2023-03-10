@@ -110,6 +110,7 @@ class UnlabelledClips(Dataset):
         assert num_clips==len(images)//spacing_between_clips
         if H!=self.save_img_size:
             clips=self._resize_images(clips) # N x T x H x W x 1, float32, [0, 255]
+        clips = clips / 255. # [0,1]
         return clips
 
 

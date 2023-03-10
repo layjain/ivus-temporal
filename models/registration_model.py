@@ -13,7 +13,17 @@ class RegistrationModel(nn.Module):
         self.args = args
         self.encoder_localizer = encoder_localizer.EncoderLocalizer(args)
         self.stn = stns.get_stn(args)
-        self.unet = utils.get_unet(in_channels=args.clip_len)
+        self.unet = utils.get_unet(in_channels=args.clip_len, args=args)
+
+    def _get_template_base(self, x, x_transformed):
+        '''
+        base to add on to the template
+        '''
+        if self.args.new_template:
+            base = torch.mean(x_transformed, dim=1, keepdim=False) # B x 1 x W x H
+        else:
+            base = torch.mean(x, dim=1, keepdim=False) # B x 1 x W x H
+        return base
 
     def forward(self, x):
         '''
@@ -28,7 +38,7 @@ class RegistrationModel(nn.Module):
         # t1 = time.time() - t0
         x_transformed = self.stn.transform(x, transform_parameters) # B x T x 1 x W x H
         # t2 = time.time() - t1 - t0
-        template = self.unet(x.squeeze()) + torch.mean(x, dim=1, keepdim=False) # B x 1 x W x H
+        template = self.unet(x.squeeze()) + self._get_template_base(x=x, x_transformed=x_transformed)
         # t3 = time.time() - t2 - t1 - t0
 
         # print(f"Model: {t1} {t2} {t3}")

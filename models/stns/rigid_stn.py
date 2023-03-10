@@ -1,5 +1,6 @@
 import torch
 import torch.nn.functional as F
+import numpy as np
 # import time
 
 from . import base
@@ -19,6 +20,7 @@ class RigidSTN(base.BaseSTN):
         p = p.view(B*T, 3) # (B*T)x 3
         # t1 = time.time() - t0
         translations, omegas = p[...,:2], p[..., 2]
+        omegas = np.pi * omegas # [-1, 1]  -> [-pi, pi]
         # https://discuss.pytorch.org/t/differentiable-and-learnable-rotations-with-grid-sample/148796
         _R = torch.stack(
             [

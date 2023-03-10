@@ -39,7 +39,7 @@ def train_one_epoch(model, criterion, optimizer, lr_scheduler, dataloader, args)
         loss = criterion(images_tr, template)
         t2 = time.time() - t0 - t1
 
-        running_mean_loss = running_mean_loss * (step/(step+1)) + (loss.item()/images.shape[0])/(step+1)
+        running_mean_loss = running_mean_loss * (step/(step+1)) + loss.item()/(step+1) # loss already mean-reduced
 
         optimizer.zero_grad()
         loss.backward()

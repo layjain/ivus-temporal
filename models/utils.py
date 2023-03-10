@@ -1,4 +1,5 @@
 import torch.nn as nn
+import torch
 
 from .encoders import resnet
 
@@ -39,16 +40,24 @@ def make_encoder(args):
 def get_num_params(transform_str):
     if transform_str == 'Rigid':
         return 3
+    elif transform_str == 'Rotation':
+        return 1
+    else:
+        raise NotImplementedError(f"Transform {transform_str} not implemented")
 
-def get_unet(in_channels):
-    import monai
-    model = monai.networks.nets.UNet(
-    spatial_dims=2,
-    in_channels=in_channels,
-    out_channels=1,
-    channels=(16, 32, 64, 128, 256),
-    strides=(2, 2, 2, 2),
-    num_res_units=1,
-    dropout = 0.1)
+def get_unet(in_channels, args):
+    if args.no_unet:
+        # B x T x W x H --> B x 1 x W x H of zeros
+        model = lambda x: torch.zeros_like(x)[:,:1,:,:]
+    else:
+        import monai
+        model = monai.networks.nets.UNet(
+        spatial_dims=2,
+        in_channels=in_channels,
+        out_channels=1,
+        channels=(16, 32, 64, 128, 256),
+        strides=(2, 2, 2, 2),
+        num_res_units=1,
+        dropout = 0.1)
 
     return model

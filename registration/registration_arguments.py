@@ -18,7 +18,9 @@ def registration_args():
     parser.add_argument('--img-size', default=256, type=int)
     parser.add_argument("--head-depth", type=int, default=2)
     parser.add_argument('--remove-layers', default=['layer4'], help='layer[1-4]')
-    parser.add_argument('--transform', default='Rigid', type=str)
+    parser.add_argument('--transforms', default=['Translation', 'Rotation'], nargs='+', choices=['Translation', 'Rotation'])
+    parser.add_argument('--new-template', default=False, action='store_true', help='use mean(x_tr) as the template base')
+    parser.add_argument('--no-unet', default=False, action='store_true', help='as if Unet output is all zeros')
 
     # Loss
     parser.add_argument("--loss", type=str, default='MSE')
@@ -32,8 +34,6 @@ def registration_args():
     parser.add_argument('--name', default='', type=str, help='')
     parser.add_argument( "--fast-test", dest="fast_test", help="", action="store_true", )
     parser.add_argument('--visualize', default=False, action='store_true', help='visualize with wandb')
-    
-    # Augmentations
     parser.add_argument("--project-name", default='TemporalRegistration', type=str)
 
     args = parser.parse_args()
