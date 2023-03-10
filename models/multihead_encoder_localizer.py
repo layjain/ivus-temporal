@@ -5,7 +5,7 @@ import torchvision
 
 from . import utils
 
-class EncoderLocalizer(nn.Module):
+class MultiHeadEncoderLocalizer(nn.Module):
     '''
     EncoderClassifier2D uses the color channels (C' = T, T' = 1) 
     to obtain the encoding and subsequent classification
@@ -14,19 +14,14 @@ class EncoderLocalizer(nn.Module):
     Use CRW pattern for consistency with past experiments
     '''
     def __init__(self, args):
-        super(EncoderLocalizer, self).__init__()
+        super(MultiHeadEncoderLocalizer, self).__init__()
         self.args=args
+        self.dim_out=args.clip_len * utils.get_num_params(args.transform) # P = T * p
         self.encoder=utils.make_encoder(args)
         self.infer_dims(args)
         self.mlp_encoding_size=args.mlp_encoding_size # default 128
-        self.heads = []
-        # maintain the order of parameter outputs
-        if 'Translation' in args.transforms:
-            self.translation_head = self.make_head(depth=getattr(args, 'head_depth', 0), dim_out=2*(args.clip_len -1))
-            self.heads.append(self.translation_head)
-        if 'Rotation' in args.transforms:
-            self.rotation_head = self.make_head(depth=getattr(args, 'head_depth', 0), dim_out=args.clip_len -1)
-            self.heads.append(self.rotation_head)
+        self.selfsim_fc = self.make_head(depth=getattr(args, 'head_depth', 0))
+        raise NotImplementedError
 
     def infer_dims(self, args):
         in_sz = args.img_size
@@ -34,7 +29,7 @@ class EncoderLocalizer(nn.Module):
         dummy_out = self.encoder(dummy) # Recall: B*N, C, T, H, W, dummy_out: B*N, 512, T, H', W'
         self.enc_hid_dim = dummy_out.shape[1]
 
-    def make_head(self, depth=1, tanh=True, dim_out=0):
+    def make_head(self, depth=1, tanh=True):
         head = []
 
         if depth > 0:
@@ -47,7 +42,7 @@ class EncoderLocalizer(nn.Module):
 
         # Add a final layer with num_classes=2 outputs
         mlp = nn.Sequential(*head)
-        mlp.add_module('transformer_FC', nn.Linear(self.args.mlp_encoding_size, dim_out))
+        mlp.add_module('transformer_FC', nn.Linear(self.args.mlp_encoding_size, self.dim_out))
         if tanh:
             mlp.add_module("tanh",nn.Tanh())
         return mlp
@@ -63,9 +58,5 @@ class EncoderLocalizer(nn.Module):
         H_prime, W_prime = maps.shape[-2:]
         feats = maps.sum(-1).sum(-1) / (H_prime*W_prime) # B x 256 x 1
         feats = feats.transpose(-1, -2).reshape(-1, self.enc_hid_dim) # B x 1 x 512 --> B x 512
-        raise NotImplementedError
-        parameters = []
-        for localizer_head in self.heads:
-            parameters.append(localizer_head(feats)) # B x P
-        parameters = torch.cat(parameters, dim=-1)
-        return parameters
+        feats = self.selfsim_fc(feats) # B x P
+        return feats
