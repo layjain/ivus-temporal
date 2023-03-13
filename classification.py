@@ -4,6 +4,7 @@ import torch
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+import copy
 
 import torch
 import torch.nn as nn
@@ -91,9 +92,24 @@ def get_lr_scheduler(optimizer, args):
         raise ValueError(f"LR Scheduler {args.lr_scheduler} not implemented!")
     return lr_scheduler
 
-def main(args):    
+def update_ema_model(model, model_ema, args):
+    for param, ema_param in zip(model.parameters(), model_ema.parameters()):
+        ema_param.data.mul_(args.alpha).add_(1 - args.alpha, param.data)
+    for bn, bn_ema in zip(model.modules(), model_ema.modules()):
+        if isinstance(bn, torch.nn.BatchNorm2d):
+            bn_ema.running_mean.mul_(args.alpha).add_(1 - args.alpha, bn.running_mean)
+            bn_ema.running_var.mul_(args.alpha).add_(1 - args.alpha, bn.running_var)
+
+    return model_ema
+
+def main(args):
     model = EncoderClassifier2D(args)
+    model_ema = copy.deepcopy(model)
+    for param, ema_param in zip(model.parameters(), model_ema.parameters()):
+        ema_param.data.copy_(param.data)
+
     model = model.to(args.device)
+    model_ema = model_ema.to(args.device)
 
     vis = utils.visualize.Visualize(args) if args.visualize else None
 
@@ -123,14 +139,20 @@ def main(args):
                 os.path.join(save_dir, 'model_{}.pth'.format(epoch)))
 
     for epoch in range(args.epochs):
+        model_ema = update_ema_model(model_ema=model_ema, model=model, args=args)
+
         val_diags = val_one_epoch(model, criterion, mal_val_loader, normal_val_loader, args)
+        ema_diags = val_one_epoch(model_ema, criterion, mal_val_loader, normal_val_loader, args)
         train_diags = train_one_epoch(model, criterion, optimizer, lr_scheduler, mal_train_loader, normal_train_loader, args)
         val_diags = {f'val_{k}':v for k,v in val_diags.items()}
+        ema_diags = {f'valema_{k}':v for k,v in ema_diags.items()}
         train_diags = {f'train_{k}':v for k,v in train_diags.items()}
 
         print(f"Epoch [{epoch}] : Train: {train_diags['train_loss']}, Val: {val_diags['val_loss']}")
 
         diags=utils.dict_merge(val_diags, train_diags, assert_unique_keys=True)
+        diags=utils.dict_merge(diags, ema_diags, assert_unique_keys=True)
+
         if vis is not None:
             vis.wandb_init(model)
             vis.log(diags)

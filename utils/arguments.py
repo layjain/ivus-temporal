@@ -3,6 +3,7 @@ import os
 import torch
 import random
 import utils
+import numpy as np
 
 def classification_args():
     parser = argparse.ArgumentParser(description='Malapposition Classification using Temporal models')
@@ -37,6 +38,7 @@ def classification_args():
     parser.add_argument('--lr-scheduler', type=str, default='MultiStepLR', help='LR Scheduler')
     parser.add_argument('--lr-milestones', nargs='+', default=[], type=int, help='decrease lr on milestones')
     parser.add_argument('--lr-gamma', default=0.3, type=float, help='decrease lr by a factor of lr-gamma')
+    parser.add_argument('--ema-halflife', default=5, type=float, help='halflife for EMA validation')
 
     # Mode + Visualizations
     parser.add_argument('--name', default='', type=str, help='')
@@ -57,6 +59,8 @@ def classification_args():
         args.model_in_channels = 2 * args.clip_len
     else:
         args.model_in_channels = args.clip_len
+
+    args.alpha = 1 - np.exp(np.log(0.5) / args.ema_halflife)
 
     if args.fast_test:
         args.batch_size = 4
