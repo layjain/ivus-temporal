@@ -37,7 +37,7 @@ def make_encoder(args):
 # Registration #
 ################s
 
-def get_unet(in_channels, args):
+def get_unet(in_channels, args, activation="tanh"):
     if args.no_unet:
         # B x T x W x H --> B x 1 x W x H of zeros
         model = lambda x: torch.zeros_like(x)[:,:1,:,:]
@@ -51,5 +51,10 @@ def get_unet(in_channels, args):
         strides=(2, 2, 2, 2),
         num_res_units=1,
         dropout = 0.1)
-
+        if activation is None:
+            pass
+        elif activation=="tanh":
+            model = nn.Sequential(model, nn.Tanh())
+        else:
+            raise NotImplementedError(f"Unet Activation {activation}")
     return model
