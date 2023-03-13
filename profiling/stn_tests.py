@@ -12,8 +12,7 @@ import sys
 from tqdm import tqdm
 
 sys.path.append("/data/vision/polina/users/layjain/ivus-temporal")
-from models.stns import rigid_stn, rotation_stn
-
+from models.stns import rigid_stn, rotation_stn, parameters
 
 B, T, H, W = 3, 2, 256, 256
 
@@ -25,11 +24,10 @@ np_batch = np.expand_dims(np_batch, 2) # B x T x 1 x H x W
 x = torch.tensor(np_batch.astype(np.float32), requires_grad=False)
 
 # Parameters
-p_1 = [0, 0, 0] + [0.5, 0, 0] # batch 1
-p_2 = [0,0,np.pi/4] + [0, 0.5, 0] # batch 2
-p_3 = [0,0,-np.pi/4] + [0.2,0.2,0] # batch 3
-p = np.stack([p_1, p_2, p_3])
-p = torch.tensor(p.astype(np.float32), requires_grad=True)
+p = parameters.Parameters(
+    translation=torch.tensor([[0,0,]+[0.5,0],[0,0]+[0,0.5],[0,0,]+[0.2,0.2]],dtype=torch.float32, requires_grad=True), # B=3 x (2*T=2)
+    rotation=torch.tensor([[0,0],[1/4, 0],[-1/4, 0]],dtype=torch.float32, requires_grad=True), # B=3 x T=2
+)
 
 # Rigid STN
 stn = rigid_stn.RigidSTN()
@@ -54,8 +52,8 @@ def display_batch(x, savepath="stn_tests.jpg"):
 display_batch(x_tr)
 
 # Check differentiability
-print(p.grad)
-optimizer = torch.optim.AdamW([p], lr=1e-2)
+print(p.translation.grad, p.rotation.grad)
+optimizer = torch.optim.AdamW([p.translation, p.rotation], lr=1e-2)
 losses = []
 for epoch in tqdm(range(200)):
     optimizer.zero_grad()
@@ -68,12 +66,6 @@ for epoch in tqdm(range(200)):
 plt.plot(losses); plt.savefig("results/profiling/stn_tests_loss.png"); plt.close()
 
 # Test Rotation STN
-p_1 = [0] + [np.pi/2] # batch 1
-p_2 = [np.pi/4] + [-np.pi/4] # batch 2
-p_3 = [np.pi] + [-np.pi] # batch 3
-p = np.stack([p_1, p_2, p_3])
-p = torch.tensor(p.astype(np.float32), requires_grad=True)
-
 stn = rotation_stn.RotationSTN()
 x_tr = stn.transform(x, p)
 display_batch(x_tr, savepath="rotation_stn_tests.jpg")

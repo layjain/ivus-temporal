@@ -3,6 +3,7 @@ import torch.nn.functional as F
 import numpy as np
 
 from . import rigid_stn
+from . import parameters
 
 class RotationSTN(rigid_stn.RigidSTN):
     """
@@ -10,13 +11,10 @@ class RotationSTN(rigid_stn.RigidSTN):
     x: B x T x 1 x H x W
     """
 
-    def _transform(self, x, p):
+    def _transform(self, x, p:parameters.Parameters):
         # using the same code structure as RigidSTN for consistency
         B, T, _, H, W = x.shape
-        _, P = p.shape
-        assert P == T
-        p = p.view(B*T, 1) # (B*T) x 3
-        omegas = p[...,0] * np.pi # [-1, 1] --> [-pi, pi]
+        omegas = p.rotation.view(-1,) * np.pi # [-1, 1] --> [-pi, pi]
         _R = torch.stack(
             [
                 torch.stack(

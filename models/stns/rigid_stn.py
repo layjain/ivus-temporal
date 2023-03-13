@@ -4,6 +4,7 @@ import numpy as np
 # import time
 
 from . import base
+from . import parameters
 
 class RigidSTN(base.BaseSTN):
     """
@@ -11,15 +12,12 @@ class RigidSTN(base.BaseSTN):
     x: B x T x 1 x H x W
     """
 
-    def _transform(self, x, p):
+    def _transform(self, x, p:parameters.Parameters):
         # t0 = time.time()
         B, T, _, H, W = x.shape
-        _, P = p.shape
-        assert P == 3 * T
-        p = p.view(B, T, 3)  # B x T x 3
-        p = p.view(B*T, 3) # (B*T)x 3
-        # t1 = time.time() - t0
-        translations, omegas = p[...,:2], p[..., 2]
+        translations, omegas = p.translation, p.rotation # Bx(2*T), BxT
+        translations = translations.view(-1, 2) # (B*T) x 2
+        omegas = omegas.view(-1,) # (B*T) x 1
         omegas = np.pi * omegas # [-1, 1]  -> [-pi, pi]
         # https://discuss.pytorch.org/t/differentiable-and-learnable-rotations-with-grid-sample/148796
         _R = torch.stack(

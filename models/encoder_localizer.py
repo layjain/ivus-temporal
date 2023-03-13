@@ -4,14 +4,16 @@ import torch.nn.functional as F
 import torchvision
 
 from . import utils
+from . import stns
 
 class EncoderLocalizer(nn.Module):
     '''
     EncoderClassifier2D uses the color channels (C' = T, T' = 1) 
     to obtain the encoding and subsequent classification
-    (Hint: Take a look at Frrom3D under utils)
+    (Hint: Take a look at From3D under utils)
 
     Use CRW pattern for consistency with past experiments
+    The localizer uses different heads for predicting different transformations.
     '''
     def __init__(self, args):
         super(EncoderLocalizer, self).__init__()
@@ -19,14 +21,18 @@ class EncoderLocalizer(nn.Module):
         self.encoder=utils.make_encoder(args)
         self.infer_dims(args)
         self.mlp_encoding_size=args.mlp_encoding_size # default 128
-        self.heads = []
-        # maintain the order of parameter outputs
-        if 'Translation' in args.transforms:
-            self.translation_head = self.make_head(depth=getattr(args, 'head_depth', 0), dim_out=2*(args.clip_len -1))
-            self.heads.append(self.translation_head)
-        if 'Rotation' in args.transforms:
-            self.rotation_head = self.make_head(depth=getattr(args, 'head_depth', 0), dim_out=args.clip_len -1)
-            self.heads.append(self.rotation_head)
+        self.make_heads()
+
+    def make_heads(self):
+        if 'Translation' in self.args.transforms:
+            self.translation_head = self.make_head(depth=getattr(self.args, 'head_depth', 0), dim_out=2*self.args.clip_len)
+        else:
+            self.translation_head = lambda x: torch.zeros(x.shape[0], 2)
+
+        if 'Rotation' in self.args.transforms:
+            self.rotation_head = self.make_head(depth=getattr(self.args, 'head_depth', 0), dim_out=self.args.clip_len)
+        else:
+            self.rotation_head = lambda x: torch.zeros(x.shape[0], 1)
 
     def infer_dims(self, args):
         in_sz = args.img_size
@@ -63,9 +69,7 @@ class EncoderLocalizer(nn.Module):
         H_prime, W_prime = maps.shape[-2:]
         feats = maps.sum(-1).sum(-1) / (H_prime*W_prime) # B x 256 x 1
         feats = feats.transpose(-1, -2).reshape(-1, self.enc_hid_dim) # B x 1 x 512 --> B x 512
-        raise NotImplementedError
-        parameters = []
-        for localizer_head in self.heads:
-            parameters.append(localizer_head(feats)) # B x P
-        parameters = torch.cat(parameters, dim=-1)
+        translations=self.translation_head(feats) # B x (2*T)
+        rotations=self.rotation_head(feats) # B x T
+        parameters=stns.parameters.Parameters(translation=translations, rotation=rotations)
         return parameters

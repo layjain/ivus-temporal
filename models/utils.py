@@ -35,15 +35,7 @@ def make_encoder(args):
 
 ################
 # Registration #
-################
-
-def get_num_params(transform_str):
-    if transform_str == 'Rigid':
-        return 3
-    elif transform_str == 'Rotation':
-        return 1
-    else:
-        raise NotImplementedError(f"Transform {transform_str} not implemented")
+################s
 
 def get_unet(in_channels, args):
     if args.no_unet:
