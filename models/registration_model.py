@@ -14,6 +14,17 @@ class RegistrationModel(nn.Module):
         self.encoder_localizer = encoder_localizer.EncoderLocalizer(args)
         self.stn = stns.get_stn(args)
         self.unet = utils.get_unet(in_channels=args.clip_len, args=args)
+        # TODO
+        # if args.zero_init:
+        #     self._zero_init()
+
+    def _zero_init(self):
+        # encoder-localizer
+        nn.init.constant_(self.encoder_localizer.translation_head.transformer_FC, 0)
+        nn.init.constant_(self.encoder_localizer.rotation_head.transformer_FC, 0)
+        # unet
+        self.unet
+        raise NotImplementedError
 
     def _get_template_base(self, x, x_transformed):
         '''
@@ -43,4 +54,4 @@ class RegistrationModel(nn.Module):
 
         # print(f"Model: {t1} {t2} {t3}")
 
-        return x_transformed.squeeze(2), template # B x T x W x H, B x 1 x W x H
+        return transform_parameters, x_transformed.squeeze(2), template # B x T x W x H, B x 1 x W x H

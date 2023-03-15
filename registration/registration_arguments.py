@@ -24,11 +24,13 @@ def registration_args():
 
     # Loss
     parser.add_argument("--loss", type=str, default='MSE')
+    parser.add_argument("--loss-hyperparams", type=float, nargs='+')
 
     # Optimization
     parser.add_argument('--epochs', default=500, type=int, metavar='N', help='number of total epochs to run')
     parser.add_argument('--batches-per-epoch', default=15, type=int, help='no. of training batches per epoch')
     parser.add_argument('--lr', default=1e-3, type=float, help='initial learning rate')
+    parser.add_argument('--lr-scheduler', default='OneCycleCos', type=str, help='initial learning rate')
 
     # Mode + Visualizations
     parser.add_argument('--name', default='', type=str, help='')
@@ -46,7 +48,7 @@ def registration_args():
         args.batches_per_epoch = 2
         args.name='fast_test'
         args.visualize=False
-        args.device='cpu'
+        args.device='cuda'#'cpu'
 
     # Make the output-dir
     keys={

@@ -1,6 +1,7 @@
 import os
 import torch
 import pandas as pd
+import numpy as np
 from tqdm import tqdm
 
 import torch
@@ -28,6 +29,7 @@ def train_one_epoch(model, criterion, optimizer, lr_scheduler, dataloader, args)
     model.train()
 
     running_mean_loss = 0.0
+    translation_norms, rotation_norms = [], []
     t1s, t2s, t3s = [], [], []
     # most time spent on dataloader
     for step in tqdm(range(args.batches_per_epoch)):
@@ -35,8 +37,11 @@ def train_one_epoch(model, criterion, optimizer, lr_scheduler, dataloader, args)
         images = next(iter(dataloader)) # B x T x H x W x C=1, [0, 255]
         images = images.transpose(2, 4).to(args.device) # B x T x C x W x H
         t1 = time.time() - t0
-        images_tr, template = model(images)
-        loss = criterion(images_tr, template)
+        parameters, images_tr, template = model(images)
+        translation_norm = registration.registration_loss.regularization_penalty(parameters.translation, 0, 1).item()
+        rotation_norm = registration.registration_loss.regularization_penalty(parameters.rotation, 0, 1).item()
+
+        loss = criterion(parameters=parameters, x_tr=images_tr, template=template)
         t2 = time.time() - t0 - t1
 
         running_mean_loss = running_mean_loss * (step/(step+1)) + loss.item()/(step+1) # loss already mean-reduced
@@ -48,9 +53,20 @@ def train_one_epoch(model, criterion, optimizer, lr_scheduler, dataloader, args)
         t3 = time.time() - t0 - t1 - t2
 
         t1s.append(t1); t2s.append(t2); t3s.append(t3)
+        translation_norms.append(translation_norm); rotation_norms.append(rotation_norm)
     t1 = sum(t1s)/len(t1s); t2 = sum(t2s)/len(t2s); t3 = sum(t3s)/len(t3s)
-    diags = {'loss':running_mean_loss, 'lr':lr_scheduler.get_last_lr()[0], 't1':t1, 't2':t2, 't3':t3}
+    translation_norm = np.mean(translation_norms); rotation_norm=np.mean(rotation_norms)
+    diags = {'loss':running_mean_loss, 'lr':lr_scheduler.get_last_lr()[0], 't1':t1, 't2':t2, 't3':t3, 'v_norm':translation_norm, 'theta_norm':rotation_norm}
     return diags
+
+def get_lr_scheduler(optimizer, args):
+    if args.lr_scheduler=='OneCycleCos':
+        lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=args.lr, total_steps=args.batches_per_epoch * args.epochs, pct_start=0.1, anneal_strategy='cos')
+    elif args.lr_scheduler=='CosAnneal':
+        lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=args.lr, total_steps=args.batches_per_epoch * args.epochs, pct_start=0.0, anneal_strategy='cos')
+    else:
+        raise ValueError(f"LR Scheduler {args.lr_scheduler} not implemented!")
+    return lr_scheduler
 
 def main(args):
     model = RegistrationModel(args)
@@ -61,7 +77,7 @@ def main(args):
     train_dataloader = get_dataloader(args)
     criterion = registration.registration_loss.get_loss(args)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-    lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=args.lr, total_steps=args.batches_per_epoch * args.epochs, pct_start=0.1, anneal_strategy='cos') # OneCycelCos
+    lr_scheduler = get_lr_scheduler(optimizer, args)
 
     def save_model_checkpoint(epoch):
         if args.output_dir:
