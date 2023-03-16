@@ -48,7 +48,7 @@ def registration_args():
         args.batches_per_epoch = 2
         args.name='fast_test'
         args.visualize=False
-        args.device='cuda'#'cpu'
+        args.device='cpu'
 
     # Make the output-dir
     keys={

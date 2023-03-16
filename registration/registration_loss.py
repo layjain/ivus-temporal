@@ -45,19 +45,22 @@ def Regularized_MSE(parameters, x_tr, template, lambda_tr=None, threshold_tr=Non
 
     return loss
 
-def CC_loss(parameters, x_tr, template, win=9):
+def CC_loss(parameters, x_tr, template, win=9, return_var=False):
     '''
     Adapted from
     https://github.com/voxelmorph/voxelmorph/blob/dev/voxelmorph/torch/losses.py
     '''
     B, T, W, H = x_tr.shape
-    Ii = x_tr.transpose(1, -1) # B x H x W x T
-    Ji = template.expand(-1, T, -1, -1).transpose(1, -1)
+    Ii = torch.flatten(x_tr, start_dim=0, end_dim=1).unsqueeze(1) # B*T x 1 x H x W
+    expanded_template = template.expand(-1, T, -1, -1) # B x T x W x H
+    Ji = torch.flatten(expanded_template, start_dim=0, end_dim=1).unsqueeze(1) # B*T x 1 x H x W
+
     if Ji.shape != Ii.shape:
         raise ValueError(f"Shape mismatch between template and transformed clip")
 
     # get dimension of volume
-    # assumes Ii, Ji are sized [batch_size, *vol_shape, nb_feats]
+    # assumes Ii, Ji are sized [batch_size, *vol_shape, nb_feats] <-- wrong
+    # assumes Ii, Ji are sized [batch_size, 1, *vol_shape]
     ndims = len(list(Ii.size())) - 2
     assert ndims in [1, 2, 3], "volumes should be 1 to 3 dimensions. found: %d" % ndims
 
@@ -65,7 +68,7 @@ def CC_loss(parameters, x_tr, template, win=9):
     win = [win] * ndims
 
     # compute filters
-    sum_filt = torch.ones([1, 1, *win]).to("cuda")
+    sum_filt = torch.ones([1, 1, *win]).to(Ii.device)
 
     pad_no = math.floor(win[0] / 2)
 
@@ -97,11 +100,14 @@ def CC_loss(parameters, x_tr, template, win=9):
     u_I = I_sum / win_size
     u_J = J_sum / win_size
 
-    cross = IJ_sum - u_J * I_sum - u_I * J_sum + u_I * u_J * win_size
-    I_var = I2_sum - 2 * u_I * I_sum + u_I * u_I * win_size
-    J_var = J2_sum - 2 * u_J * J_sum + u_J * u_J * win_size
+    cross = (IJ_sum - u_J * I_sum - u_I * J_sum + u_I * u_J * win_size)/win_size
+    I_var = (I2_sum - 2 * u_I * I_sum + u_I * u_I * win_size)/win_size
+    J_var = (J2_sum - 2 * u_J * J_sum + u_J * u_J * win_size)/win_size
 
-    cc = cross * cross / (I_var * J_var + 1e-5)
+    cc = cross * cross / (I_var * J_var + 1e-15) # 1e-5 was way to close to (1/255)**2
+
+    if return_var:
+        return -torch.mean(cc), cross[0,0], I_var[0,0], J_var[0,0], cc[0,0]
 
     return -torch.mean(cc)
 
@@ -111,6 +117,8 @@ def get_loss(args):
     elif args.loss=="RegularizedMSE":
         lambda_tr, threhsold_tr, lambda_rot, threshold_rot = args.loss_hyperparams
         return lambda **kwargs: Regularized_MSE(**kwargs, lambda_tr=lambda_tr, threshold_tr=threhsold_tr, lambda_rot=lambda_rot, threshold_rot=threshold_rot)
-
+    elif args.loss=="CC":
+        win, = args.loss_hyperparams
+        return lambda **kwargs: CC_loss(**kwargs, win=round(win))
     else:
         raise NotImplementedError(f"Loss {args.loss} not implemented")
