@@ -39,6 +39,7 @@ class UnlabelledClips(Dataset):
         save_img_size = 512,
         step_between_clips = 1,
         save_file="/data/vision/polina/users/layjain/ivus-videowalk/ivus_dataset.h5",
+        one_item_only=False
     ):
         """
         Slice into clips and convert to HDF5 Cache
@@ -50,6 +51,7 @@ class UnlabelledClips(Dataset):
         self.transform = transform
         self.save_img_size = save_img_size
         self.step_between_clips = step_between_clips
+        self.one_item_only = one_item_only
 
         if not root.endswith("/"):
             root = root + "/"
@@ -128,6 +130,8 @@ class UnlabelledClips(Dataset):
 
     # @timer_func
     def __getitem__(self, idx):
+        if self.one_item_only:
+            idx = 0
         clip = self.f["clips"][idx]  # fpc x 512 x 512 x 1
         if self.transform is not None:
             clip = self.transform(clip)

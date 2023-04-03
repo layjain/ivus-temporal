@@ -34,9 +34,6 @@ def Regularized_MSE(parameters, x_tr, template, lambda_tr=None, threshold_tr=Non
     lambda_tr * (relu(translation-threshold_tr, 0))**2 + 
     lambda_rot * (relu(rotation-rotation_tr, 0))**2
     '''
-    if lambda_rot!=0:
-        raise NotImplementedError("TODO")
-
     mse_loss = MSE_loss(parameters, x_tr, template)
     penalty_tr = regularization_penalty(parameters.translation, threshold_tr, 2)
     penalty_rot = regularization_penalty(parameters.rotation, threshold_rot, 2)
@@ -110,6 +107,16 @@ def CC_loss(parameters, x_tr, template, win=9, return_var=False):
         return -torch.mean(cc), cross[0,0], I_var[0,0], J_var[0,0], cc[0,0]
 
     return -torch.mean(cc)
+
+def self_mse(images, args):
+    x = images.squeeze()
+    B, T, H, W = x.shape
+    assert H==W
+    assert B==args.batch_size
+    assert T==args.clip_len
+
+    mean_x = torch.mean(x, dim=1, keepdim=True)
+    return  MSE_loss(None, x, mean_x)
 
 def get_loss(args):
     if args.loss=="MSE":

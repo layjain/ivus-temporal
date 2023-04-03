@@ -27,12 +27,12 @@ class EncoderLocalizer(nn.Module):
         if 'Translation' in self.args.transforms:
             self.translation_head = self.make_head(depth=getattr(self.args, 'head_depth', 0), dim_out=2*self.args.clip_len)
         else:
-            self.translation_head = lambda x: torch.zeros(x.shape[0], 2)
+            self.translation_head = None
 
         if 'Rotation' in self.args.transforms:
             self.rotation_head = self.make_head(depth=getattr(self.args, 'head_depth', 0), dim_out=self.args.clip_len)
         else:
-            self.rotation_head = lambda x: torch.zeros(x.shape[0], 1)
+            self.rotation_head = None
 
     def infer_dims(self, args):
         in_sz = args.img_size
@@ -69,7 +69,16 @@ class EncoderLocalizer(nn.Module):
         H_prime, W_prime = maps.shape[-2:]
         feats = maps.sum(-1).sum(-1) / (H_prime*W_prime) # B x 256 x 1
         feats = feats.transpose(-1, -2).reshape(-1, self.enc_hid_dim) # B x 1 x 512 --> B x 512
-        translations=self.translation_head(feats) # B x (2*T)
-        rotations=self.rotation_head(feats) # B x T
+
+        if self.translation_head is None:
+            translations=torch.zeros(feats.shape[0], 2*self.args.clip_len, device=feats.device)
+        else:
+            translations=self.translation_head(feats) # B x (2*T)
+
+        if self.rotation_head is None:
+            rotations=torch.zeros(feats.shape[0], self.args.clip_len, device=feats.device)
+        else:
+            rotations=self.rotation_head(feats) # B x T
+        
         parameters=stns.parameters.Parameters(translation=translations, rotation=rotations)
         return parameters

@@ -60,7 +60,7 @@ def classification_args():
     else:
         args.model_in_channels = args.clip_len
 
-    args.alpha = 1 - np.exp(np.log(0.5) / args.ema_halflife)
+    args.alpha = np.exp(np.log(0.5) / args.ema_halflife)
 
     if args.fast_test:
         args.batch_size = 4

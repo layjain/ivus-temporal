@@ -20,7 +20,9 @@ DATAFRAME = []
 def get_dataloader(args, mode="train"):
     root = os.path.join(args.data_path, mode)
     save_file = f"/data/vision/polina/users/layjain/pickled_data/pretraining/ivus_{mode}_len_{args.clip_len}.h5"
-    dataset = UnlabelledClips(root, frames_per_clip=args.clip_len, transform=None, cached=args.use_cached_dataset, save_img_size=args.img_size, save_file=save_file)
+    dataset = UnlabelledClips(root, frames_per_clip=args.clip_len, transform=None, cached=args.use_cached_dataset, save_img_size=args.img_size, save_file=save_file, one_item_only=args.one_clip_only)
+    if (args.one_clip_only) and (mode=="train"):
+        torch.save(torch.from_numpy(dataset.__getitem__(None)), os.path.join(args.output_dir, 'clip.pt'))
     print(f"Dataset size: {len(dataset)}")
     dataloader = DataLoader(dataset, batch_size=args.batch_size, pin_memory=True, num_workers = args.workers, shuffle=True)
     return dataloader
@@ -30,18 +32,25 @@ def train_one_epoch(model, criterion, optimizer, lr_scheduler, dataloader, args)
 
     running_mean_loss = 0.0
     translation_norms, rotation_norms = [], []
+    translation_means, rotation_means = [], []
+    in_mses, out_mses = [], []
     t1s, t2s, t3s = [], [], []
     # most time spent on dataloader
     for step in tqdm(range(args.batches_per_epoch)):
         t0 = time.time()
-        images = next(iter(dataloader)) # B x T x H x W x C=1, [0, 255]
+        images = next(iter(dataloader)) # B x T x H x W x C=1, [0, 1]
         images = images.transpose(2, 4).to(args.device) # B x T x C x W x H
         t1 = time.time() - t0
         parameters, images_tr, template = model(images)
+
         translation_norm = registration.registration_loss.regularization_penalty(parameters.translation, 0, 1).item()
+        translation_mean = torch.mean(parameters.translation).item()
         rotation_norm = registration.registration_loss.regularization_penalty(parameters.rotation, 0, 1).item()
+        rotation_mean = torch.mean(parameters.rotation).item()
 
         loss = criterion(parameters=parameters, x_tr=images_tr, template=template)
+        in_mse = registration.registration_loss.self_mse(images, args).item()
+        out_mse = registration.registration_loss.self_mse(images_tr, args).item()
         t2 = time.time() - t0 - t1
 
         running_mean_loss = running_mean_loss * (step/(step+1)) + loss.item()/(step+1) # loss already mean-reduced
@@ -54,9 +63,15 @@ def train_one_epoch(model, criterion, optimizer, lr_scheduler, dataloader, args)
 
         t1s.append(t1); t2s.append(t2); t3s.append(t3)
         translation_norms.append(translation_norm); rotation_norms.append(rotation_norm)
+        translation_means.append(translation_mean); rotation_means.append(rotation_mean)
+        in_mses.append(in_mse); out_mses.append(out_mse)
+
     t1 = sum(t1s)/len(t1s); t2 = sum(t2s)/len(t2s); t3 = sum(t3s)/len(t3s)
     translation_norm = np.mean(translation_norms); rotation_norm=np.mean(rotation_norms)
+    translation_mean = np.mean(translation_means); rotation_mean=np.mean(rotation_means)
+    in_mse = np.mean(in_mses); out_mse = np.mean(out_mses)
     diags = {'loss':running_mean_loss, 'lr':lr_scheduler.get_last_lr()[0], 't1':t1, 't2':t2, 't3':t3, 'v_norm':translation_norm, 'theta_norm':rotation_norm}
+    diags = utils.dict_merge(diags, {'v_mean':translation_mean, 'theta_mean':rotation_mean, 'in_mse':in_mse, 'out_mse':out_mse})
     return diags
 
 def get_lr_scheduler(optimizer, args):
@@ -84,15 +99,9 @@ def main(args):
             save_dir = os.path.join(args.output_dir, 'saved_models')
             if not os.path.exists(save_dir):
                 os.makedirs(save_dir)
-            checkpoint = {
-                'model': model.state_dict(),
-                'optimizer': optimizer.state_dict(),
-                'lr_scheduler': lr_scheduler.state_dict(),
-                'epoch': epoch,
-                'args': args}
             torch.save(
-                checkpoint,
-                os.path.join(save_dir, 'model_{}.pth'.format(epoch)))
+                model,
+                os.path.join(save_dir, 'model_{}.pt'.format(epoch)))
 
     for epoch in range(args.epochs):
         train_diags = train_one_epoch(model, criterion, optimizer, lr_scheduler, train_dataloader, args)

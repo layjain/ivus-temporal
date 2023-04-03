@@ -15,16 +15,20 @@ class RegistrationModel(nn.Module):
         self.stn = stns.get_stn(args)
         self.unet = utils.get_unet(in_channels=args.clip_len, args=args)
         # TODO
-        # if args.zero_init:
-        #     self._zero_init()
+        if args.zero_init:
+            self._zero_init()
 
     def _zero_init(self):
         # encoder-localizer
-        nn.init.constant_(self.encoder_localizer.translation_head.transformer_FC, 0)
-        nn.init.constant_(self.encoder_localizer.rotation_head.transformer_FC, 0)
+        if self.encoder_localizer.translation_head is not None:
+            nn.init.constant_(self.encoder_localizer.translation_head.transformer_FC.weight, 0)
+            nn.init.constant_(self.encoder_localizer.translation_head.transformer_FC.bias, 0)
+        if self.encoder_localizer.rotation_head is not None:
+            nn.init.constant_(self.encoder_localizer.rotation_head.transformer_FC.weight, 0)
+            nn.init.constant_(self.encoder_localizer.rotation_head.transformer_FC.bias, 0)
         # unet
-        self.unet
-        raise NotImplementedError
+        if self.unet is not None:
+            raise NotImplementedError("TODO: Zero-Init UNET")
 
     def _get_template_base(self, x, x_transformed):
         '''
@@ -35,6 +39,12 @@ class RegistrationModel(nn.Module):
         else:
             base = torch.mean(x, dim=1, keepdim=False) # B x 1 x W x H
         return base
+
+    def _unet_pred(self, x):
+        if self.args.no_unet:
+            return torch.zeros_like(x)[:,:1,:,:]
+        else:
+            return self.unet(x)
 
     def forward(self, x):
         '''
@@ -49,7 +59,7 @@ class RegistrationModel(nn.Module):
         # t1 = time.time() - t0
         x_transformed = self.stn.transform(x, transform_parameters) # B x T x 1 x W x H
         # t2 = time.time() - t1 - t0
-        template = self.unet(x.squeeze()) + self._get_template_base(x=x, x_transformed=x_transformed)
+        template = self._unet_pred(x.squeeze()) + self._get_template_base(x=x, x_transformed=x_transformed)
         # t3 = time.time() - t2 - t1 - t0
 
         # print(f"Model: {t1} {t2} {t3}")

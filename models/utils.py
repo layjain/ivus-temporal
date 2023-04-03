@@ -40,7 +40,8 @@ def make_encoder(args):
 def get_unet(in_channels, args, activation="tanh"):
     if args.no_unet:
         # B x T x W x H --> B x 1 x W x H of zeros
-        model = lambda x: torch.zeros_like(x)[:,:1,:,:]
+        # model = lambda x: torch.zeros_like(x)[:,:1,:,:]
+        model = None
     else:
         import monai
         model = monai.networks.nets.UNet(

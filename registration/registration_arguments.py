@@ -31,6 +31,8 @@ def registration_args():
     parser.add_argument('--batches-per-epoch', default=15, type=int, help='no. of training batches per epoch')
     parser.add_argument('--lr', default=1e-3, type=float, help='initial learning rate')
     parser.add_argument('--lr-scheduler', default='OneCycleCos', type=str, help='initial learning rate')
+    parser.add_argument('--one-clip-only', default=False, action='store_true', help='force overfit')
+    parser.add_argument('--zero-init', default=False, action='store_true', help='initialize the last layer of localizer & unet (if any) to 0')
 
     # Mode + Visualizations
     parser.add_argument('--name', default='', type=str, help='')
@@ -52,7 +54,7 @@ def registration_args():
 
     # Make the output-dir
     keys={
-        "epochs":"epochs","clip_len":"len","lr":"lr","head_depth":"mlp","loss":"loss"
+        "epochs":"epochs","clip_len":"len","lr":"lr","head_depth":"mlp","loss":"loss","no_unet":"nounet"
     }
     name = '-'.join(["%s%s" % (keys[k], getattr(args, k) if not isinstance(getattr(args, k), list) else '-'.join([str(s) for s in getattr(args, k)])) for k in sorted(keys)])
     import datetime
