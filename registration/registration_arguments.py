@@ -40,6 +40,9 @@ def registration_args():
     parser.add_argument('--visualize', default=False, action='store_true', help='visualize with wandb')
     parser.add_argument("--project-name", default='TemporalRegistration', type=str)
 
+    # Augmentations
+    parser.add_argument('--aug-list', default=[], nargs='+', type=str, help='augmentations to apply')
+
     args = parser.parse_args()
 
     args.model_in_channels = args.clip_len

@@ -20,7 +20,11 @@ DATAFRAME = []
 def get_dataloader(args, mode="train"):
     root = os.path.join(args.data_path, mode)
     save_file = f"/data/vision/polina/users/layjain/pickled_data/pretraining/ivus_{mode}_len_{args.clip_len}.h5"
-    dataset = UnlabelledClips(root, frames_per_clip=args.clip_len, transform=None, cached=args.use_cached_dataset, save_img_size=args.img_size, save_file=save_file, one_item_only=args.one_clip_only)
+    if mode=='train':
+        transform = registration.registration_augs.RegistrationTransform(args)
+    else:
+        raise NotImplementedError("TODO: Val Transforms")
+    dataset = UnlabelledClips(root, frames_per_clip=args.clip_len, transform=transform, cached=args.use_cached_dataset, save_img_size=args.img_size, save_file=save_file, one_item_only=args.one_clip_only)
     if (args.one_clip_only) and (mode=="train"):
         torch.save(torch.from_numpy(dataset.__getitem__(None)), os.path.join(args.output_dir, 'clip.pt'))
     print(f"Dataset size: {len(dataset)}")
