@@ -21,7 +21,17 @@ class RegistrationTransform(object):
         
         to_apply = []
         for aug_string in self.aug_list:
-            if aug_string == "affine":
+            if aug_string == "rot":
+                rotaffine_params = torchvision.transforms.RandomAffine.get_params(
+                    degrees=(-180, 180),
+                    shears=None,
+                    scale_ranges=None,
+                    translate=None,
+                    img_size=[W, W],
+                )
+                rot = lambda img: F.affine(img, *rotaffine_params)
+                to_apply.append(rot)
+            elif aug_string == "affine":
                 affine_params = torchvision.transforms.RandomAffine.get_params(
                     degrees=(-180, 180),
                     shears=(-20, 20),

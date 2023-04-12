@@ -14,7 +14,6 @@ class RegistrationModel(nn.Module):
         self.encoder_localizer = encoder_localizer.EncoderLocalizer(args)
         self.stn = stns.get_stn(args)
         self.unet = utils.get_unet(in_channels=args.clip_len, args=args)
-        # TODO
         if args.zero_init:
             self._zero_init()
 

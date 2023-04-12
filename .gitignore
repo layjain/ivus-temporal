@@ -15,3 +15,7 @@ registration/install/
 bash_scripts/
 struts/segmentations/
 *.ipynb
+*.mat
+*.mp4
+*_clips/
+*.nii.gz

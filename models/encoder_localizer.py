@@ -38,7 +38,7 @@ class EncoderLocalizer(nn.Module):
         in_sz = args.img_size
         dummy = torch.zeros(1, args.model_in_channels, 1, in_sz, in_sz).to(next(self.encoder.parameters()).device)
         dummy_out = self.encoder(dummy) # Recall: B*N, C, T, H, W, dummy_out: B*N, 512, T, H', W'
-        self.enc_hid_dim = dummy_out.shape[1]
+        self.enc_hid_dim = dummy_out.shape[1] # 256
 
     def make_head(self, depth=1, tanh=True, dim_out=0):
         head = []

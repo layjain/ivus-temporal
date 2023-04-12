@@ -17,7 +17,7 @@ class RigidSTN(base.BaseSTN):
         B, T, _, H, W = x.shape
         translations, omegas = p.translation, p.rotation # Bx(2*T), BxT
         translations = translations.view(-1, 2) # (B*T) x 2
-        omegas = omegas.view(-1,) # (B*T) x 1
+        omegas = omegas.view(-1,) # (B*T)
         omegas = np.pi * omegas # [-1, 1]  -> [-pi, pi]
         # https://discuss.pytorch.org/t/differentiable-and-learnable-rotations-with-grid-sample/148796
         _R = torch.stack(
@@ -81,8 +81,11 @@ class RigidSTN(base.BaseSTN):
             ]
         ).squeeze() # B*T x 3 x 3
         A = torch.matmul(_R, _T) # B*T x 3 x 3
+        if len(A.shape) == 2: # if B = T = 1
+            assert A.shape == (3,3)
+            A = A.unsqueeze(0)
         A = A[:,:2,:]
-        grid = F.affine_grid(A, torch.Size((B*T, 1, H, W)), align_corners=False)
+        grid = F.affine_grid(A, torch.Size((B*T, 1, H, W)), align_corners=False, padding_mode="border")
         x = x.view(B*T, 1, H, W)
         x = F.grid_sample(x, grid, align_corners=False) # B*T x 1 x H x W
         # t2 = time.time() - t1 - t0

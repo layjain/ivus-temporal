@@ -8,10 +8,11 @@ def registration_args():
     parser.add_argument("--data-path", type=str, default='/data/vision/polina/users/layjain/pickled_data/train_val_split_4a')
     parser.add_argument("--clip-len", type=int, default=30)
     parser.add_argument("--use-cached-dataset",  dest="use_cached_dataset", help="Use cached Dataset", action='store_true')
+    parser.add_argument("--mnist",  dest="mnist", help="Use MNIST data", action='store_true')
     
     # Model and Methodology
     parser.add_argument("--encoder-type", default='resnet18', type=str, help='resnet18|resnet50')
-    parser.add_argument("--mlp-encoding-size", default=128, type=int)
+    parser.add_argument("--mlp-encoding-size", default=256, type=int)
     parser.add_argument('--device', default='cuda', help='device')
     parser.add_argument('-b', '--batch-size', default=8, type=int)
     parser.add_argument('--workers', default=10, type=int, metavar='N', help='number of data loading workers (default: 16)')
@@ -41,11 +42,14 @@ def registration_args():
     parser.add_argument("--project-name", default='TemporalRegistration', type=str)
 
     # Augmentations
-    parser.add_argument('--aug-list', default=[], nargs='+', type=str, help='augmentations to apply')
+    parser.add_argument('--aug-list', default=[], nargs='*', type=str, help='augmentations to apply')
 
     args = parser.parse_args()
 
     args.model_in_channels = args.clip_len
+
+    if args.mnist:
+        args.img_size = 28
 
     if args.fast_test:
         # args.batch_size = 4
