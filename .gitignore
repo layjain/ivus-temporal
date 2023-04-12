@@ -14,3 +14,4 @@ registration/build/
 registration/install/
 bash_scripts/
 struts/segmentations/
+*.ipynb
